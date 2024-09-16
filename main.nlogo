@@ -1,4 +1,4 @@
-extensions [table]
+extensions [table nw]
 
 turtles-own [
   id
@@ -72,32 +72,64 @@ to-report interpret [ cond ]
   ;    { "func": "after-task", "params":[ 0, "end] }     -->  [ -> [trigger_time] of (turtle 1) ]  ; if trigger_time of my_des_node not yet computed
   ;    { "func": "time-after", "params": 9 }             -->  [ -> [trigger_time] of (turtle 8) + 9 ] if trigger_time of my_start_node not yet computed
   ;   ...
-  let ref_node (ifelse-value
+  let ref_node nobody
+
+  set ref_node (ifelse-value
     (table:get cond "func" = "time-after")[ my_start_node ]
     (table:get cond "func" = "after-task")[
       ifelse-value ( last table:get cond "params" = "start" )
       [ get_des_node (first table:get cond "params") true ]
       [ get_des_node (first table:get cond "params") false]
     ][
-      nobody
+      "function not defined"
     ]
   )
+
+  ; check loop in network
+  if (nw:path-to ref_node != false) [
+    error (word "loop exists among refs " (list [list id start_end_sign is_start_node?] of self [list id start_end_sign is_start_node?] of ref_node))
+  ]
   create-link-from ref_node
+
   report (ifelse-value
     (table:get cond "func" = "time-after")
-    [ (runresult (word "[ -> " (table:get cond "params") " + [trigger_time] of " ref_node " ]" )) ]
+    [ (runresult
+          (word "[ -> " (get_params_value (table:get cond "params")) " + "
+                     ifelse-value (ref_node = self) [ 0 ][ word "[trigger_time] of " ref_node ]
+                " ]"
+          )
+      )
+    ]
     [ (runresult (word "[ -> [trigger_time] of " ref_node " ]" )) ]
   )
 end
 
+to-report get_params_value [params]
+  ifelse (is-number? params)[
+    report params
+  ][
+    let func (runresult (word "[ [vars] -> " (table:get params "func") " vars ]"))
+    report (runresult func (table:get params "params") )
+  ]
+end
+
+to-report random_normal [ vars ]
+  report random-normal first vars last vars
+end
+
+
 to-report trigger_time
-  report ifelse-value (is-number? table:get my_config ifelse-value (is_start_node?)[ "start" ]["end"]) [
+  report ifelse-value (is-number? table:get my_config (start_end_sign is_start_node?)) [
     table:get my_config ifelse-value (is_start_node?)[ "start" ]["end"]
   ][
     ifelse-value (transitions = 0)
     [ 0 ]
     [ max_duration ]
   ]
+end
+
+to-report start_end_sign [ bool ]
+  report ifelse-value bool [ "start" ][ "end" ]
 end
 
 to-report max_duration
@@ -125,10 +157,10 @@ to-report my_config
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-406
-43
-866
-504
+527
+45
+987
+506
 -1
 -1
 26.6
@@ -171,19 +203,19 @@ NIL
 INPUTBOX
 13
 45
-404
+527
 679
 config_input
-{\"tasks\":[\n {\n    \"id\":0,\n    \"start\":1,\n    \"end\": 4\n  },\n  {\n    \"id\":1,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] }\n    ]\n  },\n  {\n    \"id\":2,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [3, \"end\"] },\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 9 }\n    ]\n  },\n  {\n    \"id\":3,\n    \"start\":3,\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 2 }\n    ]\n  },\n  {\n    \"id\":4,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [3, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [2, \"end\"] }\n    ]\n  }\n]}
+{\"tasks\":[\n {\n    \"id\":0,\n    \"start\":1,\n    \"end\": 4\n  },\n  {\n    \"id\":1,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] }\n    ]\n  },\n  {\n    \"id\":2,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] },\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\":\n          { \"func\": \"random_normal\", \"params\": [5, 2] }\n      }\n    ]\n  },\n  {\n    \"id\":3,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [2, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 2 }\n    ]\n  },\n  {\n    \"id\":4,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [3, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ]\n  }\n]}
 1
 1
 String
 
 BUTTON
-407
-10
-487
-43
+528
+12
+608
+45
 NIL
 compile
 NIL
@@ -203,7 +235,7 @@ SWITCH
 45
 load-from-file?
 load-from-file?
-0
+1
 1
 -1000
 
