@@ -1,0 +1,42 @@
+{"tasks":[
+    {
+       "id":0,
+       "start":1,
+       "end": 4
+     },
+     {
+       "id":1,
+       "start": [
+         { "func": "after-task", "params": [0, "start"] }
+       ],
+       "end": [
+         { "func": "after-task", "params": [0, "end"] }
+       ]
+     },
+     {
+       "id":2,
+       "start": [
+         { "func": "after-task", "params": [3, "end"] },
+         { "func": "after-task", "params": [1, "end"] }
+       ],
+       "end": [
+         { "func": "time-after", "params": 9 }
+       ]
+     },
+     {
+       "id":3,
+       "start":3,
+       "end": [
+         { "func": "time-after", "params": 2 }
+       ]
+     },
+     {
+       "id":4,
+       "start":[
+         { "func": "after-task", "params": [3, "start"] }
+       ],
+       "end": [
+         { "func": "after-task", "params": [2, "end"] }
+       ]
+     }
+   ]}

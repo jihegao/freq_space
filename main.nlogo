@@ -2,115 +2,176 @@ extensions [table]
 
 turtles-own [
   id
-  start_point
-  end_point
+  is_start_node?  ; true - start node, false - end node
+  transitions
 ]
 
+
+to init-task-pair [ tid ]
+  let start nobody
+  create-turtles 1[
+    set id tid
+    set is_start_node? true
+    set start self
+    set label (word id " START")
+    set heading 90
+    set ycor 5 + who
+    set shape "arrow"
+  ]
+  create-turtles 1 [
+    set id tid
+    set is_start_node? false
+    set label (word id " END")
+    set color [color] of start
+    set heading 90
+    set ycor [ycor] of start
+    set shape "circle"
+    create-link-from start
+  ]
+end
 
 
 to setup
   clear-all
+    foreach table:values config [ task ->
+    if not member? table:get task "id" [id] of turtles [
+      init-task-pair (table:get task "id")
+    ]
+  ]
+  ask turtles [
+    if not member? id (table:keys config) [ die ]
+    ifelse trigger_time > 0 [
+      set xcor trigger_time
+    ][
+      set transitions map [ cond -> interpret cond ] (table:get my_config (ifelse-value (is_start_node?)[ "start" ][ "end" ]))
+    ]
+  ]
+  foreach map [t -> [(list label trigger_time transitions)] of t ] sort turtles show
+
 end
 
-to-report config
-  let result []
-  carefully [
-    set result table:from-json config_input
+
+to compile
+  ask turtles [
+    if trigger_time > xcor [
+      set xcor trigger_time
+    ]
   ]
-  [ ]
+end
+
+to-report start-after-task-start [ tid ]
+  let t_time [ trigger_time ] of one-of turtles with [id = tid and is_start_node?]
+  if t_time > 0 [ report t_time ]
+  ; else, find max_duration of task tid
+  report [max_duration] of one-of turtles with [id = tid and is_start_node?]
+end
+
+
+to-report start-after-task-end [ tid ]
+  report [ trigger_time ] of one-of turtles with [id = tid and not is_start_node?]
+end
+
+
+
+to-report time-after [params]
+  report ifelse-value ( [trigger_time] of my_start_node > 0 )
+  [ [trigger_time] of my_start_node + params ]
+  [ max_duration ]
+end
+
+to-report my_start_node
+  report one-of turtles with [id = [id] of myself and is_start_node?]
+end
+
+to-report get_des_node [ tid is_start? ]
+  report one-of turtles with [id = tid and is_start_node? = is_start?]
+end
+
+to-report interpret [ cond ]
+  ;    { "func": "after-task", "params":[ 0, "start"] }  -->  [ -> [trigger_time] of (turtle 0) ]  ; if trigger_time of my_des_node not yet computed
+  ;    { "func": "after-task", "params":[ 0, "end] }     -->  [ -> [trigger_time] of (turtle 1) ]  ; if trigger_time of my_des_node not yet computed
+  ;    { "func": "time-after", "params": 9 }             -->  [ -> [trigger_time] of (turtle 8) + 9 ] if trigger_time of my_start_node not yet computed
+  ;   ...
+  let ref_node (ifelse-value
+    (table:get cond "func" = "time-after")[ my_start_node ]
+    (table:get cond "func" = "after-task")[
+      ifelse-value ( last table:get cond "params" = "start" )
+      [ get_des_node (first table:get cond "params") true ]
+      [ get_des_node (first table:get cond "params") false]
+    ][
+      nobody
+    ]
+  )
+  create-link-from ref_node
+  report (ifelse-value
+    (table:get cond "func" = "time-after")
+    [ (runresult (word "[ -> " (table:get cond "params") " + [trigger_time] of " ref_node " ]" )) ]
+    [ (runresult (word "[ -> [trigger_time] of " ref_node " ]" )) ]
+  )
+end
+
+to-report trigger_time
+  report ifelse-value (is-number? table:get my_config ifelse-value (is_start_node?)[ "start" ]["end"]) [
+    table:get my_config ifelse-value (is_start_node?)[ "start" ]["end"]
+  ][
+    ifelse-value (transitions = 0)
+    [ 0 ]
+    [ max_duration ]
+  ]
+end
+
+to-report max_duration
+  let results map [ tran -> (runresult tran) ] transitions
+  report max results
+end
+
+
+to-report config
+  let result table:make
+  carefully [
+    foreach table:get (ifelse-value load-from-file? [ table:from-json-file "input.json" ] [ table:from-json config_input ]) "tasks" [ conf ->
+      table:put result (table:get conf "id") conf
+    ]
+  ]
+  [  ]
   report result
 end
 
 to-report tasks
-  report table:get config "tasks"
+  report map [cid -> table:get config cid ] table:keys config
 end
 
-to-report duration
-  report ifelse-value (is-number? end_point) [ end_point ] [ 1 ]
+to-report my_config
+  report table:get config id
 end
 
-to go
-  foreach tasks [ task ->
-    if not member? table:get task "id" [id] of turtles [
-      create-turtles 1 [
-        set id table:get task "id"
-        set label id
-        set heading 90
-        set ycor 5 + who
-        set shape "line-arrow"
-      ]
-    ]
-    ask turtles with [id = table:get task "id"][
-      set start_point table:get task "start"
-      set end_point table:get task "end"
-      set size duration * 2
-      ifelse is-number? start_point [
-        set xcor start_point
-      ][
-        let ref_func table:get start_point "func"
-        let ref_params table:get start_point "params"
-        set ref_params ifelse-value (is-string? ref_params)[ read-from-string ref_params ][ ref_params ]
-        if any? turtles with [member? who ref_params][
-          set xcor max [xcor + duration] of turtles with [ member? who [ref_params] of myself ]
-          create-links-from turtles with [ member? who [ref_params] of myself ]
-        ]
-      ]
-    ]
-  ]
-  ask turtles with [ not member? id (map [ t -> table:get t "id"] tasks) ][ die ]
-end
-
-to interpret
-
-end
-
-to-report start-after [ sid ]
-  report [ -> true ]
-end
 @#$#@#$#@
 GRAPHICS-WINDOW
-481
-10
-1331
-657
+406
+43
+866
+504
 -1
 -1
-25.52
+26.6
 1
 10
 1
 1
 1
 0
-1
-1
+0
+0
 1
 0
-32
+16
 0
-24
+16
 0
 0
 1
 ticks
 30.0
-
-BUTTON
-83
-10
-146
-43
-NIL
-go
-T
-1
-T
-OBSERVER
-NIL
-G
-NIL
-NIL
-1
 
 BUTTON
 14
@@ -131,22 +192,22 @@ NIL
 
 INPUTBOX
 13
-44
-479
-697
+45
+404
+679
 config_input
-{\"tasks\":[\n {\n    \"id\":0,\n    \"start\":0,\n    \"end\": 4\n  },\n  {\n    \"id\":1,\n    \"start\":{ \"func\": \"start-after\", \"params\": [0] },\n    \"end\": 4\n  },\n  {\n    \"id\":2,\n    \"start\":{ \"func\": \"start-after\", \"params\": [1] },\n    \"end\": 4\n  },\n  {\n    \"id\":3,\n    \"start\":{ \"func\": \"start-after\", \"params\": [0, 1] },\n    \"end\": 2\n  },\n  {\n    \"id\":4,\n    \"start\":{ \"func\": \"start-after\", \"params\": [2, 3] },\n    \"end\": 2\n  }\n]}
+{\"tasks\":[\n {\n    \"id\":0,\n    \"start\":1,\n    \"end\": 4\n  },\n  {\n    \"id\":1,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] }\n    ]\n  },\n  {\n    \"id\":2,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [3, \"end\"] },\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 9 }\n    ]\n  },\n  {\n    \"id\":3,\n    \"start\":3,\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 2 }\n    ]\n  },\n  {\n    \"id\":4,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [3, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [2, \"end\"] }\n    ]\n  }\n]}
 1
 1
 String
 
 BUTTON
-157
+407
 10
-251
+487
 43
 NIL
-interpret
+compile
 NIL
 1
 T
@@ -156,6 +217,17 @@ NIL
 NIL
 NIL
 1
+
+SWITCH
+99
+12
+261
+45
+load-from-file?
+load-from-file?
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
