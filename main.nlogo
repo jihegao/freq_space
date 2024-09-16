@@ -59,26 +59,6 @@ to compile
   ]
 end
 
-to-report start-after-task-start [ tid ]
-  let t_time [ trigger_time ] of one-of turtles with [id = tid and is_start_node?]
-  if t_time > 0 [ report t_time ]
-  ; else, find max_duration of task tid
-  report [max_duration] of one-of turtles with [id = tid and is_start_node?]
-end
-
-
-to-report start-after-task-end [ tid ]
-  report [ trigger_time ] of one-of turtles with [id = tid and not is_start_node?]
-end
-
-
-
-to-report time-after [params]
-  report ifelse-value ( [trigger_time] of my_start_node > 0 )
-  [ [trigger_time] of my_start_node + params ]
-  [ max_duration ]
-end
-
 to-report my_start_node
   report one-of turtles with [id = [id] of myself and is_start_node?]
 end
@@ -121,8 +101,7 @@ to-report trigger_time
 end
 
 to-report max_duration
-  let results map [ tran -> (runresult tran) ] transitions
-  report max results
+  report max map [ tran -> (runresult tran) ] transitions
 end
 
 
@@ -144,7 +123,6 @@ end
 to-report my_config
   report table:get config id
 end
-
 @#$#@#$#@
 GRAPHICS-WINDOW
 406
