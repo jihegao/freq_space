@@ -1,42 +1,238 @@
-{"tasks":[
+{
+  "crew": {
+    "a": 4,
+    "b": 8,
+    "c": 4,
+    "d": 4
+  },
+  "services":[
     {
-       "id":0,
-       "start":1,
-       "end": 4
-     },
-     {
-       "id":1,
-       "start": [
-         { "func": "after-task", "params": [0, "start"] }
-       ],
-       "end": [
-         { "func": "after-task", "params": [0, "end"] }
-       ]
-     },
-     {
-       "id":2,
-       "start": [
-         { "func": "after-task", "params": [3, "end"] },
-         { "func": "after-task", "params": [1, "end"] }
-       ],
-       "end": [
-         { "func": "time-after", "params": 9 }
-       ]
-     },
-     {
-       "id":3,
-       "start":3,
-       "end": [
-         { "func": "time-after", "params": 2 }
-       ]
-     },
-     {
-       "id":4,
-       "start":[
-         { "func": "after-task", "params": [3, "start"] }
-       ],
-       "end": [
-         { "func": "after-task", "params": [2, "end"] }
-       ]
-     }
-   ]}
+      "id":0,
+      "start":1,
+      "end": [
+          { "func": "time-after", "params": 3 }
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":1,
+      "start": [
+          { "func": "after-task", "params": [0, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params": 40 }
+      ],
+      "crew": { "a": 1 }
+    },
+    {
+      "id":2,
+      "start": [
+          { "func": "after-task", "params": [0, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params": 15}
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":3,
+      "start":[
+          { "func": "after-task", "params": [2, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [8, 0] }
+          }
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":4,
+      "start":[
+          { "func": "after-task", "params": [2, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [16, 0] }
+          }
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":5,
+      "start":[
+          { "func": "after-task", "params": [3, "end"] },
+          { "func": "after-task", "params": [4, "end"] },
+          { "func": "after-task", "params": [11, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [15, 0] }
+          }
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":6,
+      "start":[
+          { "func": "after-task", "params": [0, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [10, 0] }
+          }
+      ],
+      "crew": { "b": 1 }
+    },
+    {
+      "id":7,
+      "start":[
+          { "func": "after-task", "params": [6, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [35, 0] }
+          }
+      ],
+      "crew": { "b": 4 }
+    },
+    {
+      "id":8,
+      "start":[
+          { "func": "after-task", "params": [6, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [25, 0] }
+          }
+      ],
+      "crew": { "b": 4 }
+    },
+    {
+      "id":9,
+      "start":[
+          { "func": "after-task", "params": [7, "end"] },
+          { "func": "after-task", "params": [8, "end"] },
+          { "func": "after-task", "params": [11, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [8, 0] }
+          }
+      ],
+      "crew": { "b": 2 }
+    },
+    {
+      "id":10,
+      "start":[
+          { "func": "after-task", "params": [0, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [15, 0] }
+          }
+      ],
+      "crew": { "c": 1 }
+    },
+    {
+      "id":11,
+      "start":[
+          { "func": "after-task", "params": [10, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [5, 0] }
+          }
+      ],
+      "crew": { "c": 2 }
+    },
+    {
+      "id":12,
+      "start":[
+          { "func": "after-task", "params": [11, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [15, 0] }
+          }
+      ],
+      "crew": { "c": 2 }
+    },
+    {
+      "id":13,
+      "start":[
+          { "func": "after-task", "params": [0, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [15, 0] }
+          }
+      ],
+      "crew": { "d": 1 }
+    },
+    {
+      "id":14,
+      "start":[
+          { "func": "after-task", "params": [13, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [5, 0] }
+          }
+      ],
+      "crew": { "d": 1 }
+    },
+    {
+      "id":15,
+      "start":[
+          { "func": "after-task", "params": [14, "end"] }
+      ],
+      "end": [
+          { "func": "time-after", "params":
+              { "func": "random_normal", "params": [8, 0] }
+          }
+      ],
+      "crew": { "d": 2 }
+    },
+    {
+      "id":16,
+      "start":[
+        { "func": "after-task", "params": [15, "end"] }
+      ],
+      "end": [
+        { "func": "time-after", "params":
+          { "func": "random_normal", "params": [8, 0] }
+        }
+      ],
+      "crew": { "d": 2 }
+    },
+    {
+      "id":17,
+      "start":[
+        { "func": "after-task", "params": [1, "end"] },
+        { "func": "after-task", "params": [5, "end"] },
+        { "func": "after-task", "params": [9, "end"] },
+        { "func": "after-task", "params": [12, "end"] },
+        { "func": "after-task", "params": [16, "end"] }
+      ],
+      "end": [
+        { "func": "time-after", "params":
+          { "func": "random_normal", "params": [10, 0] }
+        }
+      ],
+      "crew": { "a": 2 }
+    },
+    {
+      "id":18,
+      "start":[
+        { "func": "after-task", "params": [17, "end"] }
+      ],
+      "end": [
+        { "func": "time-after", "params":
+            { "func": "random_normal", "params": [3, 0] }
+        }
+      ],
+      "crew": { "a": 2 }
+    }
+  ]
+}

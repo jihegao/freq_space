@@ -1,70 +1,223 @@
 extensions [table nw]
 
-turtles-own [
+breed [ units unit ]
+breed [ services service ]
+breed [ crew person ]
+
+globals [
+  service_schedule
+]
+
+units-own [
   id
+  service_requests
+]
+
+services-own [
+  id
+  caller          ; unit
   is_start_node?  ; true - start node, false - end node
   transitions
+  transitions_code
+  crew_demand
+  origin_trigger_time
 ]
 
 
-to init-task-pair [ tid ]
+to-report total_service_time
+  report max [xcor] of services
+end
+
+
+to-report init-task-pair [ tid tag crew_dem ]
   let start nobody
-  create-turtles 1[
+  let pair no-turtles
+  hatch 1 [
+    set breed services
+    set caller myself
     set id tid
     set is_start_node? true
+    set crew_demand crew_dem
     set start self
-    set label (word id " START")
+    set label (word "<" id " " tag ">")
+    set label-color black
     set heading 90
-    set ycor 5 + who
+    set ycor 10 + 2 * [ycor] of caller + id + count services with [label = [label] of myself]
     set shape "arrow"
+    set pair (turtle-set pair self)
   ]
-  create-turtles 1 [
+  hatch 1 [
+    set breed services
+    set caller myself
     set id tid
     set is_start_node? false
-    set label (word id " END")
+    set crew_demand crew_dem
+    set label (word "</" id " " tag ">")
+    set label-color black
     set color [color] of start
     set heading 90
     set ycor [ycor] of start
     set shape "circle"
     create-link-from start
+    set pair (turtle-set pair self)
   ]
+  report pair
+end
+
+to-report all_demand_list [service_pack]
+  let schedule table:from-list map [c -> (list first c table:from-list (list (list 0 last c))) ] table:to-list config_crew
+  let all_demands sentence [map [k -> (list k (list xcor (- table:get crew_demand k) ))] table:keys crew_demand] of service_pack with [is_start_node?]
+                           [map [k -> (list k (list xcor table:get crew_demand k))] table:keys crew_demand] of service_pack with [not is_start_node?]
+  report all_demands
+end
+
+to-report all_service_demands [service_pack]
+  let schedule table:from-list map [c -> (list first c table:from-list (list (list 0 last c))) ] table:to-list config_crew
+  let all_demands all_demand_list service_pack
+  foreach all_demands [ demands ->
+    foreach demands [ d ->
+      let k first d
+      let rec (last d)
+      let rec_time first rec
+      let rec_num_change last rec
+      let records table:get schedule k
+      ifelse table:has-key? records rec_time [
+        table:put records rec_time rec_num_change + (table:get records rec_time)
+      ][
+        table:put records rec_time rec_num_change
+      ]
+    ]
+  ]
+  report schedule
+end
+
+to-report crew_schedule [service_pack]
+  let cumulated_schedule table:make
+  foreach table:keys (all_service_demands service_pack) [ ctype ->
+    let records table:get (all_service_demands service_pack) ctype
+    let num 0
+    let sorted []
+    foreach sort table:keys records [ time_stamp ->
+      set num (num + table:get records time_stamp)
+      set sorted lput (list time_stamp num) sorted
+    ]
+    table:put cumulated_schedule ctype sorted
+  ]
+  report cumulated_schedule
 end
 
 
 to setup
   clear-all
+  ask patches [ set pcolor white ]
+
+  create-units 4 [
+    set id who
+    set color green - id
+    set service_requests no-turtles
+    set ycor 25 * who
+
     foreach table:values config [ task ->
-    if not member? table:get task "id" [id] of turtles [
-      init-task-pair (table:get task "id")
+      if not member? table:get task "id" [id] of service_requests [
+        set service_requests (turtle-set service_requests init-task-pair (table:get task "id") (table:get-or-default task "tag" "") (table:get-or-default task "crew" "") )
+      ]
     ]
-  ]
-  ask turtles [
-    if not member? id (table:keys config) [ die ]
-    ifelse trigger_time > 0 [
-      set xcor trigger_time
-    ][
-      set transitions map [ cond -> interpret cond ] (table:get my_config (ifelse-value (is_start_node?)[ "start" ][ "end" ]))
-    ]
-  ]
-  foreach map [t -> [(list label trigger_time transitions)] of t ] sort turtles show
 
+    ask service_requests [
+      if not member? id (table:keys config) [ die ]
+      ifelse trigger_time > 0 [
+        set xcor trigger_time
+      ][
+        set transitions_code (table:get my_config (ifelse-value (is_start_node?)[ "start" ][ "end" ]))
+        set transitions map [ cond -> interpret cond ] transitions_code
+      ]
+    ]
+  ]
+
+  foreach map [t -> [(list label trigger_time transitions)] of t ] sort services show
 end
 
 
-to compile
-  ask turtles [
-    if trigger_time > xcor [
+to compile [c_option]
+  foreach sort services [ s ->
+    ask s [
       set xcor trigger_time
+      set xcor xcor + 2
     ]
   ]
+  (ifelse
+    c_option = "FIFO" [
+      let service_pack no-turtles
+      foreach sort services [ s ->
+        ask s [
+          set xcor trigger_time
+          while [is_start_node? and not crew_available? service_pack][
+            set xcor xcor + 1
+          ]
+        ]
+        set service_pack (turtle-set service_pack s)
+      ]
+    ]
+    [
+      let service_pack no-turtles
+      ask units [
+        foreach sort service_requests [ s ->
+          set service_pack (turtle-set service_pack s)
+          ask s [
+            set xcor max (list trigger_time )
+            while [is_start_node? and not crew_available? service_pack][
+              set xcor xcor + 1
+            ]
+          ]
+        ]
+      ]
+    ]
+  )
 end
+
+to-report crew_available? [service_pack]
+  let available true
+  let crew_types table:keys crew_demand
+  foreach crew_types [ ctype ->
+    if (crew_capacity service_pack ctype xcor) < table:get crew_demand ctype [
+      set available false
+    ]
+  ]
+  report available
+end
+
+to-report crew_capacity [ service_pack ctype time ]
+  report last last filter [c_log -> first c_log <= time] (table:get (crew_schedule service_pack) ctype)
+end
+
+;to-report crew_available_time [service_pack start]
+;  let crew_types table:keys crew_demand
+;  let capacity map [ ctype -> (crew_capacity service_pack ctype start) - table:get crew_demand ctype ] crew_types
+;end
+
+to-report init-crew-arrangement
+  let plan []
+  let time 0
+  foreach sort units [
+    u ->
+    ask u [
+      foreach sort service_requests [
+        s ->
+        set plan lput s plan
+      ]
+    ]
+  ]
+
+  report plan
+end
+
 
 to-report my_start_node
-  report one-of turtles with [id = [id] of myself and is_start_node?]
+  report one-of services with [id = [id] of myself and is_start_node? and caller = [caller] of myself]
 end
 
 to-report get_des_node [ tid is_start? ]
-  report one-of turtles with [id = tid and is_start_node? = is_start?]
+  report one-of services with [id = tid and is_start_node? = is_start? and caller = [caller] of myself]
 end
 
 to-report interpret [ cond ]
@@ -119,13 +272,15 @@ end
 
 
 to-report trigger_time
-  report ifelse-value (is-number? table:get my_config (start_end_sign is_start_node?)) [
+  let ttime ifelse-value (is-number? table:get my_config (start_end_sign is_start_node?)) [
     table:get my_config ifelse-value (is_start_node?)[ "start" ]["end"]
   ][
     ifelse-value (transitions = 0)
     [ 0 ]
     [ max_duration ]
   ]
+  if (xcor > ttime)[ set origin_trigger_time ttime ]
+  report ifelse-value (xcor > ttime)[ xcor ][ ttime ]
 end
 
 to-report start_end_sign [ bool ]
@@ -137,10 +292,14 @@ to-report max_duration
 end
 
 
+to-report config_crew
+  report table:get (table:from-json-file "input.json") "crew"
+end
+
 to-report config
   let result table:make
   carefully [
-    foreach table:get (ifelse-value load-from-file? [ table:from-json-file "input.json" ] [ table:from-json config_input ]) "tasks" [ conf ->
+    foreach table:get (ifelse-value load-from-file? [ table:from-json-file "input.json" ] [ table:from-json config_input ]) "services" [ conf ->
       table:put result (table:get conf "id") conf
     ]
   ]
@@ -148,22 +307,19 @@ to-report config
   report result
 end
 
-to-report tasks
-  report map [cid -> table:get config cid ] table:keys config
-end
 
 to-report my_config
   report table:get config id
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-527
-45
-987
-506
+349
+68
+1343
+526
 -1
 -1
-26.6
+2.237
 1
 10
 1
@@ -174,9 +330,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-16
+440
 0
-16
+200
 0
 0
 1
@@ -203,21 +359,21 @@ NIL
 INPUTBOX
 13
 45
-527
-679
+345
+643
 config_input
-{\"tasks\":[\n {\n    \"id\":0,\n    \"start\":1,\n    \"end\": 4\n  },\n  {\n    \"id\":1,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] }\n    ]\n  },\n  {\n    \"id\":2,\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] },\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\":\n          { \"func\": \"random_normal\", \"params\": [5, 2] }\n      }\n    ]\n  },\n  {\n    \"id\":3,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [2, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\": 2 }\n    ]\n  },\n  {\n    \"id\":4,\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [3, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ]\n  }\n]}
+{\"services\":[\n {\n    \"id\":0,\n    \"tag\":\"外观检查\",\n    \"start\":1,\n    \"end\": 10,\n    \"crew\": { \"a\": 2 }\n  },\n  {\n    \"id\":1,\n    \"tag\":\"加油\",\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"start\"] }\n    ],\n    \"end\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] }\n    ],\n    \"crew\": { \"a\": 2 }\n  },\n  {\n    \"id\":2,\n    \"tag\":\"挂弹\",\n    \"start\": [\n      { \"func\": \"after-task\", \"params\": [0, \"end\"] },\n      { \"func\": \"after-task\", \"params\": [1, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\":\n          { \"func\": \"random_normal\", \"params\": [15, 2] }\n      }\n    ],\n    \"crew\": { \"a\": 2 }\n  },\n  {\n    \"id\":3,\n    \"tag\":\"推出\",\n    \"start\":[\n      { \"func\": \"after-task\", \"params\": [2, \"end\"] }\n    ],\n    \"end\": [\n      { \"func\": \"time-after\", \"params\":\n          { \"func\": \"random_normal\", \"params\": [20, 2] }\n      }\n    ],\n    \"crew\": { \"a\": 2 }\n  }\n]}
 1
 1
 String
 
 BUTTON
-528
+265
 12
-608
+389
 45
 NIL
-compile
+compile option
 NIL
 1
 T
@@ -235,9 +391,30 @@ SWITCH
 45
 load-from-file?
 load-from-file?
-1
+0
 1
 -1000
+
+CHOOSER
+390
+10
+528
+55
+option
+option
+"FIFO" "SEQUENCE"
+0
+
+MONITOR
+536
+12
+661
+57
+NIL
+total_service_time
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
